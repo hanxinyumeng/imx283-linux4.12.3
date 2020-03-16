@@ -1,0 +1,132 @@
+<!--
+* Copyright (C) 2010, Freescale Semiconductor, Inc. All Rights Reserved.
+* The CFG element contains a list of recognized usb devices.
+*  DEV elements provide a name, class, vid and pid for each device.
+*
+* Each LIST element contains a list of update instructions.
+*  "Install" - Erase media and install firmware.
+*  "Update" - Update firmware only.
+*
+* Each CMD element contains one update instruction of attribute type.
+*  "pull" - Does UtpRead(body, file) transaction.
+*  "push" - Does UtpWrite(body, file) transaction.
+*  "drop" - Does UtpCommand(body) then waits for device to disconnect.
+*  "boot" - Finds configured device, forces it to "body" device and downloads "file".
+*  "find" - Waits for "timeout" seconds for the "body" device to connect.
+*  "show" - Parse and show device info in "file".  
+*<STATE name="Recovery" dev="IMX28"/>
+*<DEV name="IMX28" vid="15A2" pid="004F"/>
+*
+* FIXME: 
+* Currently, the sd image can use with uboot or without uboot
+* Nand image not uses uboot (only linux.sb)
+*
+-->
+
+<UCL>
+  <CFG>
+    <STATE name="Recovery" dev="IMX28"/>
+    <STATE name="Updater"   dev="Updater" />  
+    <DEV name="IMX28" vid="15A2" pid="004F"/>
+    <DEV name="Updater" vid="066F" pid="37FF" />
+  </CFG>
+
+<LIST name="NAND uboot kernel rootfs(128M NAND)" desc="Install on singlechip NAND">
+<CMD type="boot" body="Recovery" file="imx28_BootCfg.sb" if="HabDisable">Enable unencrypted boot modes.</CMD>
+<CMD type="boot" body="Recovery" file="imx28_BootCfg_ivt.sb" if="HabEnable">Enable unencrypted boot modes.</CMD>
+<CMD type="wait" body="ResetToRecovery" timeout="3">Waiting for Reset to Recovery.</CMD>
+<CMD type="boot" body="Recovery" file="updater.sb" timeout="60" if="HabDisable">Booting update firmware.</CMD>
+<CMD type="boot" body="Recovery" file="updater_ivt.sb" timeout="60" if="HabEnable">Booting update firmware.</CMD>
+<CMD type="find" body="Updater" timeout="180"/>
+<CMD type="push" body="mknod class/mtd,mtd0,/dev/mtd0" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd1,/dev/mtd1" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd2,/dev/mtd2" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd3,/dev/mtd3" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd4,/dev/mtd4" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd5,/dev/mtd5" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd6,/dev/mtd6" timeout="180" />
+<CMD type="push" body="mknod class/misc,ubi_ctrl,/dev/ubi_ctrl"/>
+<CMD type="push" body="$ nandtest -m -s /dev/urandom /dev/mtd0">Testing partition0</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd0">Erasing partition0</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd1">Erasing partition1</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd2">Erasing partition2</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd3">Erasing partition3</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd4">Erasing partition4</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd5">Erasing partition5</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd6">Erasing partition6</CMD>
+<CMD type="push" body="send" file="files/imx28_ivt_uboot.sb">Sending firmware</CMD>
+<CMD type="push" body="$ kobs-ng init $FILE">Flashing firmware</CMD>
+<CMD type="push" body="send" file="files/uImage">Sending firmware</CMD>
+<CMD type="push" body="$ mtdwrite -f $FILE -a 0x200000 -b 0x680000">Flashing firmware</CMD>
+<CMD type="push" body="$ mtdwrite -f $FILE -a 0x780000 -b 0xc00000">Flashing firmware</CMD>
+<CMD type="push" body="$ ubiattach /dev/ubi_ctrl -m 5 -d 0">Attaching UBI partition0</CMD>
+<CMD type="push" body="mknod class/ubi,ubi0,/dev/ubi0"/>
+<CMD type="push" body="$ ubimkvol /dev/ubi0 -n 0 -N rootfs -m">Creating UBI volumes0</CMD>
+<CMD type="push" body="$ mount -t ubifs ubi0 /mnt/" />
+<CMD type="push" body="$ ubiattach /dev/ubi_ctrl -m 6 -d 1">Attaching UBI partition1</CMD>
+<CMD type="push" body="mknod class/ubi,ubi1,/dev/ubi1"/>
+<CMD type="push" body="$ ubimkvol /dev/ubi1 -n 1 -N opt -m">Creating UBI volumes1</CMD>
+<CMD type="push" body="$ mkdir -p /mnt/opt">mkdir -p /mnt/opt</CMD>
+<CMD type="push" body="$ mount -t ubifs -o sync ubi1:opt /mnt/opt" />
+<CMD type="push" body="pipe tar -jxv -C /mnt/"  timeout="360" file="files/rootfs.tar.bz2">Transfer rootfs</CMD>
+<CMD type="push" body="frf">Finish Flashing NAND</CMD>
+<CMD type="push" body="$ umount /mnt/opt">Unmounting opt</CMD>
+<CMD type="push" body="$ umount /mnt">Unmounting rootfs</CMD>
+<CMD type="push" body="$ echo Update Complete!">Done</CMD>
+
+
+</LIST>
+<LIST name="NAND uboot-kernel-rootfs-dtb(128MB)" desc="Install on singlechip NAND">
+<CMD type="boot" body="Recovery" file="imx28_BootCfg.sb" if="HabDisable">Enable unencrypted boot modes.</CMD>
+<CMD type="boot" body="Recovery" file="imx28_BootCfg_ivt.sb" if="HabEnable">Enable unencrypted boot modes.</CMD>
+<CMD type="wait" body="ResetToRecovery" timeout="3">Waiting for Reset to Recovery.</CMD>
+<CMD type="boot" body="Recovery" file="updater.sb" timeout="60" if="HabDisable">Booting update firmware.</CMD>
+<CMD type="boot" body="Recovery" file="updater_ivt.sb" timeout="60" if="HabEnable">Booting update firmware.</CMD>
+<CMD type="find" body="Updater" timeout="180"/>
+<CMD type="push" body="mknod class/mtd,mtd0,/dev/mtd0" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd1,/dev/mtd1" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd2,/dev/mtd2" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd3,/dev/mtd3" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd4,/dev/mtd4" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd5,/dev/mtd5" timeout="180" />
+<CMD type="push" body="mknod class/mtd,mtd6,/dev/mtd6" timeout="180" />
+<CMD type="push" body="mknod class/misc,ubi_ctrl,/dev/ubi_ctrl"/>
+<CMD type="push" body="$ flash_eraseall /dev/mtd0">Erasing partition0</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd1">Erasing partition1</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd2">Erasing partition2</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd3">Erasing partition3</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd4">Erasing partition4</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd5">Erasing partition5</CMD>
+<CMD type="push" body="$ flash_eraseall /dev/mtd6">Erasing partition5</CMD>
+<CMD type="push" body="send" file="files/imx28_ivt_uboot.sb">Sending uboot</CMD>
+<CMD type="push" body="$ kobs-ng init -v $FILE">Flashing uboot firmware</CMD>
+<CMD type="push" body="$ flash_erase /dev/mtd0 0x800000 32">Erasing 0x800000 32</CMD>
+<CMD type="push" body="send" file="files/imx28-evk.dtb">Sending dtb</CMD>
+<CMD type="push" body="$ mtdwrite -d /dev/mtd0 -f $FILE -a 0x800000">Flashing dtb firmware</CMD>
+<CMD type="push" body="$ flash_erase /dev/mtd0 0x400000 32">Erasing 0x00400000 32</CMD>
+<CMD type="push" body="send" file="files/zImage">Sending zImage</CMD>
+<CMD type="push" body="$ mtdwrite -d /dev/mtd0 -f $FILE -a 0x400000">Flashing zImage firmware</CMD>
+<CMD type="push" body="$ ubiattach /dev/ubi_ctrl -m 5 -d 0">Attaching UBI partition</CMD>
+<CMD type="push" body="mknod class/ubi,ubi0,/dev/ubi0"/>
+<CMD type="push" body="$ ubimkvol /dev/ubi0 -n 0 -N filesystem -m">Creating UBI volumes</CMD>
+<CMD type="push" body="$ mkdir -p /mnt/ubi0; mount -t ubifs ubi0_0 /mnt/ubi0" />
+<CMD type="push" body="pipe tar -jxv -C /mnt/ubi0"  timeout="180" file="files/rootfs.tar.bz2">Transfer rootfs</CMD>
+<CMD type="push" body="frf">Finish Flashing rootfs</CMD>
+<CMD type="push" body="$ umount /mnt/ubi0">Unmounting</CMD>
+<CMD type="push" body="$ echo Update Complete!">Done</CMD>
+</LIST>
+
+<LIST name="NAND uboot only" desc="Install uboot on singlechip NAND">
+<CMD type="boot" body="Recovery" file="imx28_BootCfg.sb" if="HabDisable">Enable unencrypted boot modes.</CMD>
+<CMD type="boot" body="Recovery" file="imx28_BootCfg_ivt.sb" if="HabEnable">Enable unencrypted boot modes.</CMD>
+<CMD type="wait" body="ResetToRecovery" timeout="3">Waiting for Reset to Recovery.</CMD>
+<CMD type="boot" body="Recovery" file="updater.sb" timeout="60" if="HabDisable">Booting update firmware.</CMD>
+<CMD type="boot" body="Recovery" file="updater_ivt.sb" timeout="60" if="HabEnable">Booting update firmware.</CMD>
+<CMD type="find" body="Updater" timeout="180"/>
+<CMD type="push" body="mknod class/mtd,mtd0,/dev/mtd0" timeout="180" />
+<CMD type="push" body="$ nandtest -m -s /dev/urandom /dev/mtd0">Testing partition0</CMD>
+<CMD type="push" body="send" file="files/imx28_ivt_uboot.sb">Sending firmware</CMD>
+<CMD type="push" body="$ kobs-ng init $FILE">Flashing firmware</CMD>
+<CMD type="push" body="$ echo Update Complete!">Done</CMD>
+</LIST>
+</UCL>
